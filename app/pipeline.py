@@ -1,16 +1,14 @@
+import asyncio
 import httpx
 
-OLLAMA_URL = "http://172.17.0.1:11434/api/chat"
+llm_lock = asyncio.Lock()
 
-async def run_llm(messages):
-    async with httpx.AsyncClient() as client:
+client = httpx.AsyncClient(timeout=120)
+
+async def run_llm(payload):
+    async with llm_lock:
         response = await client.post(
-            OLLAMA_URL,
-            json={
-                "model": "deepseek-coder:6.7b",
-                "messages": messages,
-                "stream": False
-            }
+            "http://host.docker.internal:host-gateway:11434/api/chat",
+            json=payload,
         )
-    data = response.json()
-    return data.get("message", {}).get("content", "")
+        return response

@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 import asyncio
+import httpx
+
+OLLAMA_URL = "http://host.docker.internal:11434"
 
 from app.scheduler import Scheduler, Task
 from app.worker import worker_loop
@@ -45,7 +48,33 @@ async def find_optimal_concurrency():
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(worker_loop(scheduler))
+@app.post("/api/chat")
+async def ollama_chat(request: Request):
+    data = await request.json()
 
+    # 🔥 debug
+    print("OLLAMA CHAT REQUEST:", data)
+
+    messages = data.get("messages")
+
+    # fallback jeśli ktoś używa prompt zamiast messages
+    if not messages and "prompt" in data:
+        messages = [
+            {"role": "user", "content": data["prompt"]}
+        ]
+
+    if not messages:
+        return {"error": "No messages"}
+
+    # 🔥 używamy Twojego scheduler
+    result = await run_llm(messages)
+
+    return {
+        "message": {
+            "role": "assistant",
+            "content": result
+        }
+    }
 
 @app.post("/v1/chat/completions")
 async def chat(req: Request):
@@ -130,3 +159,33 @@ async def get_metrics():
         "tasks": metrics.tasks[-20:],       # 🔥 ostatnie taski
         "batches": metrics.batches[-10:]    # 🔥 ostatnie batche
     }
+from fastapi import Request
+from fastapi.responses import Response
+import httpx
+
+OLLAMA_URL = "http://host.docker.internal:11434"
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_all(request: Request, path: str):
+    url = f"{OLLAMA_URL}/{path}"
+
+    async with httpx.AsyncClient() as client:
+        body = await request.body()
+
+        headers = dict(request.headers)
+        headers.pop("host", None)
+
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params
+        )
+
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers=dict(resp.headers)
+    )
