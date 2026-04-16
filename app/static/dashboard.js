@@ -1,4 +1,34 @@
-console.log("dashboard.js loaded v2");
+console.log("dashboard.js loaded v3");
+
+window.applySettings = async function() {
+    try {
+        const concurrency = document.getElementById('concurrency-input').value;
+        const cavemanInput = document.getElementById('caveman-input-enabled').checked;
+        const cavemanOutput = document.getElementById('caveman-output-enabled').checked;
+
+        const res = await fetch('/autotune', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                concurrency: concurrency ? parseInt(concurrency) : null,
+                caveman_input: cavemanInput,
+                caveman_output: cavemanOutput
+            })
+        });
+
+        const data = await res.json();
+
+        document.getElementById('result').innerText =
+            JSON.stringify(data);
+
+        await refresh();
+
+    } catch (err) {
+        console.error("applySettings error:", err);
+    }
+}
 
 function colorStatus(status) {
     if (status === "running") return "orange";
@@ -53,38 +83,6 @@ async function refresh() {
         console.error("refresh error:", err);
     }
 }
-
-
-async function applySettings() {
-    try {
-        const concurrency = document.getElementById('concurrency-input').value;
-        const cavemanInput = document.getElementById('caveman-input-enabled').checked;
-        const cavemanOutput = document.getElementById('caveman-output-enabled').checked;
-
-        const res = await fetch('/autotune', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                concurrency: concurrency ? parseInt(concurrency) : null,
-                caveman_input: cavemanInput,
-                caveman_output: cavemanOutput
-            })
-        });
-
-        const data = await res.json();
-
-        document.getElementById('result').innerText =
-            JSON.stringify(data);
-
-        await refresh();
-
-    } catch (err) {
-        console.error("applySettings error:", err);
-    }
-}
-
 
 // 🔥 live refresh
 setInterval(refresh, 1000);
