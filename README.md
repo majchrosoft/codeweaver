@@ -1,4 +1,4 @@
-# 🚀 codeweaver — local LLM runtime proxy
+# 🚀 codeweaver — VRAM-aware local LLM runtime proxy
 MIT License
 
 > **Turn any local LLM into a smart, VRAM-aware, production-ready system.**
