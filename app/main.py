@@ -96,9 +96,12 @@ async def ollama_chat(request: Request):
                     payload[param] = data[param]
             
         print(f"OLLAMA FINAL PAYLOAD: {payload}")
-        result = await run_llm(payload)
+
+        task = Task(payload)
+        await scheduler.add_task(task)
+        result = await task.future
     except Exception as e:
-        print(f"Error calling run_llm: {e}")
+        print(f"Error in ollama_chat: {e}")
         return {"error": str(e)}
 
     return {
