@@ -1,0 +1,51 @@
+<html>
+<head>
+    <title>codeweaver dashboard</title>
+    <script src="/static/dashboard.js"></script>
+    <style>
+        body { font-family: Arial; background: #111; color: #eee; }
+        .card { margin: 20px; padding: 20px; background: #222; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<h1>🔥 codeweaver dashboard</h1>
+
+<div class="card">
+    <h2>Queue</h2>
+    <p id="queue"></p>
+</div>
+
+<div class="card">
+    <h2>Tokens</h2>
+    <p id="tokens"></p>
+</div>
+
+<div class="card">
+    <h2>Concurrency</h2>
+    <p id="concurrency"></p>
+</div>
+<div class="card">
+    <h2>Batch</h2>
+    <p id="batch"></p>
+</div>
+
+<div class="card">
+    <h2>Tasks</h2>
+    <div id="tasks"></div>
+</div>
+
+<div class="card">
+    <h2>Batches</h2>
+    <div id="batches"></div>
+</div>
+
+<div class="card">
+    <h2>Control</h2>
+    <input id="concurrency-input" type="number" placeholder="auto or set value" />
+    <button onclick="autotune()">🔥 Apply</button>
+    <p id="result"></p>
+</div>
+
+</body>
+</html>
