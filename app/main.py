@@ -67,7 +67,11 @@ async def ollama_chat(request: Request):
         return {"error": "No messages"}
 
     # 🔥 używamy Twojego scheduler
-    result = await run_llm(messages)
+    try:
+        result = await run_llm(messages)
+    except Exception as e:
+        print(f"Error calling run_llm: {e}")
+        return {"error": str(e)}
 
     return {
         "message": {
@@ -115,14 +119,19 @@ async def benchmark(n: int = Query(5)):
         for _ in range(n)
     ]
 
-    await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     duration = time.time() - start
+
+    # Check for failures
+    failures = [r for r in results if isinstance(r, Exception)]
 
     return {
         "requests": n,
         "total_time": duration,
-        "avg_time": duration / n
+        "avg_time": duration / n,
+        "failures": len(failures),
+        "errors": [str(f) for f in failures[:5]]
     }
 
 
@@ -141,8 +150,12 @@ async def autotune(data: dict):
         }
 
     # auto
-    best = await find_optimal_concurrency()
-    set_concurrency(best["c"])
+    try:
+        best = await find_optimal_concurrency()
+        set_concurrency(best["c"])
+    except Exception as e:
+        print(f"Error during autotune: {e}")
+        return {"error": str(e)}
 
     return {
         "mode": "auto",

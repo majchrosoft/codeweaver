@@ -115,7 +115,7 @@ Works with:
 Runs anywhere:
 
 ```bash
-docker run -p 8000:8000 --add-host=host.docker.internal:host-gateway odeweaver/llm-proxy 
+docker run -p 8000:8000 --add-host=host.docker.internal:host-gateway codeweaver/llm-proxy
 ```
 
 ---
