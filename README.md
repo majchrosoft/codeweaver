@@ -165,6 +165,21 @@ This project focuses on:
 | Batching              | ❌             | ✅          |
 | VRAM-aware scheduling | ❌             | 🔥         |
 | Token-based control   | ❌             | 🔥         |
+| **Caveman Mode**      | ❌             | 🦴         |
+
+---
+
+## 🦴 Caveman Mode
+
+Reduce token usage by ~75% while keeping technical accuracy.
+
+### Configuration
+* `CAVEMAN_INPUT_ENABLED=true` (default: false) - Compresses input messages by removing fluff.
+* `CAVEMAN_OUTPUT_ENABLED=true` (default: false) - Injects system prompt to force terse LLM responses.
+* `CAVEMAN_LEVEL=lite|full|ultra` (default: full)
+
+### Pipeline
+`PhpStorm -> Weaver -> Caveman (Input Compression) -> Caveman (Prompt Injection) -> Ollama -> Caveman (Model Response) -> PhpStorm`
 
 ---
 

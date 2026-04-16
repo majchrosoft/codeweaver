@@ -9,6 +9,7 @@ from app.scheduler import Scheduler, Task
 from app.worker import worker_loop
 from app.metrics import metrics
 from app.pipeline import run_llm
+from app.caveman import apply_caveman, CAVEMAN_INPUT_ENABLED, CAVEMAN_OUTPUT_ENABLED
 from fastapi import Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -72,6 +73,9 @@ async def ollama_chat(request: Request):
     if not messages:
         return {"error": "No messages"}
 
+    # apply caveman if enabled
+    messages = apply_caveman(list(messages))
+
     # 🔥 używamy Twojego scheduler
     try:
         # Include all relevant fields from data into payload
@@ -119,12 +123,19 @@ async def chat(req: Request):
     if not messages:
         return {"error": "No messages"}
 
+    # apply caveman if enabled
+    messages = apply_caveman(list(messages))
+
     # We use basic payload to match initial working state
     payload = {
         "model": body.get("model", "qwen2.5-coder:1.5b-base"),
         "messages": messages,
         "stream": False
     }
+
+    # Extract keep_alive if present
+    if "keep_alive" in body:
+        payload["keep_alive"] = body["keep_alive"]
 
     # If the request contains OpenAI specific fields, we can still map some of them
     # But only into the 'options' sub-dictionary if they exist.
@@ -243,6 +254,8 @@ async def get_metrics():
         "tokens_in_flight": metrics.tokens_in_flight,
         "concurrency": metrics.concurrency,
         "last_batch_size": metrics.last_batch_size,
+        "caveman_input_enabled": CAVEMAN_INPUT_ENABLED,
+        "caveman_output_enabled": CAVEMAN_OUTPUT_ENABLED,
         "tasks": metrics.tasks[-20:],       # 🔥 ostatnie taski
         "batches": metrics.batches[-10:]    # 🔥 ostatnie batche
     }
@@ -257,22 +270,42 @@ OLLAMA_URL = "http://host.docker.internal:11434"
 async def proxy_all(request: Request, path: str):
     url = f"{OLLAMA_URL}/{path}"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         body = await request.body()
 
         headers = dict(request.headers)
         headers.pop("host", None)
+        # Avoid potential issues with content-length if body was modified (though it's not here)
+        headers.pop("content-length", None)
 
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params
-        )
+        try:
+            # We use stream=True to handle potentially large or streaming responses correctly
+            async with client.stream(
+                method=request.method,
+                url=url,
+                headers=headers,
+                content=body,
+                params=request.query_params
+            ) as resp:
+                # Check if it's a streaming response or if we should stream it anyway to be safe
+                if (resp.headers.get("transfer-encoding") == "chunked" or 
+                    resp.headers.get("content-type") == "application/x-ndjson" or
+                    resp.status_code == 200):
+                    
+                    from fastapi.responses import StreamingResponse
+                    return StreamingResponse(
+                        resp.aiter_raw(),
+                        status_code=resp.status_code,
+                        headers=dict(resp.headers)
+                    )
 
-    return Response(
-        content=resp.content,
-        status_code=resp.status_code,
-        headers=dict(resp.headers)
-    )
+                # Fallback for non-200 or small known responses
+                await resp.read()
+                return Response(
+                    content=resp.content,
+                    status_code=resp.status_code,
+                    headers=dict(resp.headers)
+                )
+        except httpx.HTTPError as e:
+            print(f"Proxy error for {path}: {e}")
+            return Response(content=str(e), status_code=502)
