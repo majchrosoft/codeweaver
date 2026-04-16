@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import time
 
+OLLAMA_URL = "http://host.docker.internal:11434"
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -82,7 +84,7 @@ async def ollama_chat(request: Request):
         # Define allowed Ollama /api/chat parameters
         # reference: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
         allowed_params = [
-            "format", "options", "template", "stream", "keep_alive", "tools"
+            "format", "options", "stream", "keep_alive", "tools"
         ]
         
         for param in allowed_params:
@@ -90,6 +92,9 @@ async def ollama_chat(request: Request):
                 # We still override stream to False because run_llm expects it
                 if param == "stream":
                     payload["stream"] = False
+                elif param == "options" and not isinstance(data[param], dict):
+                    # Skip invalid options
+                    continue
                 else:
                     payload[param] = data[param]
             
@@ -119,13 +124,15 @@ async def chat(req: Request):
 
     # Define allowed Ollama /api/chat parameters to pass through
     allowed_params = [
-        "format", "options", "template", "stream", "keep_alive", "tools"
+        "format", "options", "stream", "keep_alive", "tools"
     ]
     
     for param in allowed_params:
         if param in body:
             if param == "stream":
                 payload["stream"] = False
+            elif param == "options" and not isinstance(body[param], dict):
+                continue
             else:
                 payload[param] = body[param]
 

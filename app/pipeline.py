@@ -11,5 +11,8 @@ async def run_llm(payload):
             "http://host.docker.internal:11434/api/chat",
             json=payload,
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            error_msg = f"OLLAMA API ERROR: {response.status_code} - {response.text}"
+            print(error_msg)
+            raise Exception(error_msg)
         return response.json()["message"]["content"]
