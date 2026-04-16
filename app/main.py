@@ -72,12 +72,22 @@ async def ollama_chat(request: Request):
 
     # 🔥 używamy Twojego scheduler
     try:
-        # Include the model in the payload
+        # Include all relevant fields from data into payload
         payload = {
             "model": data.get("model", "qwen2.5-coder:1.5b-base"),
             "messages": messages,
             "stream": False # Ensure non-streaming for now as run_llm doesn't handle streams
         }
+        
+        # Pass through other optional fields if present
+        if "options" in data:
+            payload["options"] = data["options"]
+        if "keep_alive" in data:
+            payload["keep_alive"] = data["keep_alive"]
+        if "template" in data:
+            payload["template"] = data["template"]
+            
+        print(f"OLLAMA FINAL PAYLOAD: {payload}")
         result = await run_llm(payload)
     except Exception as e:
         print(f"Error calling run_llm: {e}")
@@ -100,6 +110,14 @@ async def chat(req: Request):
         "messages": messages,
         "stream": False
     }
+
+    # Pass through other optional fields if present
+    if "options" in body:
+        payload["options"] = body["options"]
+    if "keep_alive" in body:
+        payload["keep_alive"] = body["keep_alive"]
+    if "template" in body:
+        payload["template"] = body["template"]
 
     task = Task(payload)
     await scheduler.add_task(task)
