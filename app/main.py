@@ -84,15 +84,12 @@ async def ollama_chat(request: Request):
         # Define allowed Ollama /api/chat parameters
         # reference: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
         allowed_params = [
-            "format", "options", "stream", "keep_alive", "tools", "num_predict"
+            "format", "options", "keep_alive", "tools", "num_predict"
         ]
         
         for param in allowed_params:
             if param in data:
-                # We still override stream to False because run_llm expects it
-                if param == "stream":
-                    payload["stream"] = False
-                elif param == "options" and not isinstance(data[param], dict):
+                if param == "options" and not isinstance(data[param], dict):
                     # Skip invalid options
                     continue
                 else:
@@ -119,20 +116,16 @@ async def chat(req: Request):
     if not messages:
         return {"error": "No messages"}
 
+    # We use basic payload to match initial working state
     payload = {
         "model": body.get("model", "qwen2.5-coder:1.5b-base"),
         "messages": messages,
         "stream": False
     }
 
-    # Define allowed Ollama /api/chat parameters to pass through
-    allowed_params = [
-        "format", "options", "stream", "keep_alive", "tools", "num_predict"
-    ]
-    
-    # Check for parameters often sent by OpenAI clients and map them to Ollama options if needed
-    if "options" not in payload:
-        payload["options"] = {}
+    # If the request contains OpenAI specific fields, we can still map some of them
+    # But only into the 'options' sub-dictionary if they exist.
+    options = {}
     
     openai_to_ollama = {
         "temperature": "temperature",
@@ -144,22 +137,22 @@ async def chat(req: Request):
     
     for openai_param, ollama_opt in openai_to_ollama.items():
         if openai_param in body:
-            payload["options"][ollama_opt] = body[openai_param]
-            
-    # Clean up options if empty
-    if not payload["options"]:
-        del payload["options"]
+            options[ollama_opt] = body[openai_param]
 
-    print(f"DEBUG: V1 REQUEST BODY: {body}")
-    
-    for param in allowed_params:
+    # Map other possible Ollama options directly if they are in body["options"]
+    if "options" in body and isinstance(body["options"], dict):
+        options.update(body["options"])
+
+    if options:
+        payload["options"] = options
+
+    # Map other top-level Ollama params if they are in body
+    allowed_top_params = ["format", "keep_alive", "tools", "num_predict"]
+    for param in allowed_top_params:
         if param in body:
-            if param == "stream":
-                payload["stream"] = False
-            elif param == "options" and not isinstance(body[param], dict):
-                continue
-            else:
-                payload[param] = body[param]
+            payload[param] = body[param]
+
+    print(f"DEBUG: V1 FINAL PAYLOAD: {payload}")
 
     task = Task(payload)
     await scheduler.add_task(task)
