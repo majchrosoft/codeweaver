@@ -79,13 +79,19 @@ async def ollama_chat(request: Request):
             "stream": False # Ensure non-streaming for now as run_llm doesn't handle streams
         }
         
-        # Pass through other optional fields if present
-        if "options" in data:
-            payload["options"] = data["options"]
-        if "keep_alive" in data:
-            payload["keep_alive"] = data["keep_alive"]
-        if "template" in data:
-            payload["template"] = data["template"]
+        # Define allowed Ollama /api/chat parameters
+        # reference: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
+        allowed_params = [
+            "format", "options", "template", "stream", "keep_alive", "tools"
+        ]
+        
+        for param in allowed_params:
+            if param in data:
+                # We still override stream to False because run_llm expects it
+                if param == "stream":
+                    payload["stream"] = False
+                else:
+                    payload[param] = data[param]
             
         print(f"OLLAMA FINAL PAYLOAD: {payload}")
         result = await run_llm(payload)
@@ -111,13 +117,17 @@ async def chat(req: Request):
         "stream": False
     }
 
-    # Pass through other optional fields if present
-    if "options" in body:
-        payload["options"] = body["options"]
-    if "keep_alive" in body:
-        payload["keep_alive"] = body["keep_alive"]
-    if "template" in body:
-        payload["template"] = body["template"]
+    # Define allowed Ollama /api/chat parameters to pass through
+    allowed_params = [
+        "format", "options", "template", "stream", "keep_alive", "tools"
+    ]
+    
+    for param in allowed_params:
+        if param in body:
+            if param == "stream":
+                payload["stream"] = False
+            else:
+                payload[param] = body[param]
 
     task = Task(payload)
     await scheduler.add_task(task)
