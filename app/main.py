@@ -259,53 +259,40 @@ async def get_metrics():
         "tasks": metrics.tasks[-20:],       # 🔥 ostatnie taski
         "batches": metrics.batches[-10:]    # 🔥 ostatnie batche
     }
-from fastapi import Request
-from fastapi.responses import Response
-import httpx
-
-OLLAMA_URL = "http://host.docker.internal:11434"
-
+from fastapi.responses import Response, StreamingResponse
+from app.pipeline import client
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def proxy_all(request: Request, path: str):
     url = f"{OLLAMA_URL}/{path}"
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    try:
         body = await request.body()
-
         headers = dict(request.headers)
         headers.pop("host", None)
-        # Avoid potential issues with content-length if body was modified (though it's not here)
         headers.pop("content-length", None)
 
-        try:
-            # We use stream=True to handle potentially large or streaming responses correctly
-            async with client.stream(
-                method=request.method,
-                url=url,
-                headers=headers,
-                content=body,
-                params=request.query_params
-            ) as resp:
-                # Check if it's a streaming response or if we should stream it anyway to be safe
-                if (resp.headers.get("transfer-encoding") == "chunked" or 
-                    resp.headers.get("content-type") == "application/x-ndjson" or
-                    resp.status_code == 200):
-                    
-                    from fastapi.responses import StreamingResponse
-                    return StreamingResponse(
-                        resp.aiter_raw(),
-                        status_code=resp.status_code,
-                        headers=dict(resp.headers)
-                    )
+        req = client.build_request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params
+        )
+        resp = await client.send(req, stream=True)
+        
+        async def iterate_and_close():
+            try:
+                async for chunk in resp.aiter_raw():
+                    yield chunk
+            finally:
+                await resp.aclose()
 
-                # Fallback for non-200 or small known responses
-                await resp.read()
-                return Response(
-                    content=resp.content,
-                    status_code=resp.status_code,
-                    headers=dict(resp.headers)
-                )
-        except httpx.HTTPError as e:
-            print(f"Proxy error for {path}: {e}")
-            return Response(content=str(e), status_code=502)
+        return StreamingResponse(
+            iterate_and_close(),
+            status_code=resp.status_code,
+            headers=dict(resp.headers)
+        )
+    except Exception as e:
+        print(f"Proxy error for {path}: {e}")
+        return Response(content=str(e), status_code=502)
