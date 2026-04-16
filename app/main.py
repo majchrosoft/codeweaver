@@ -84,7 +84,7 @@ async def ollama_chat(request: Request):
         # Define allowed Ollama /api/chat parameters
         # reference: https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
         allowed_params = [
-            "format", "options", "stream", "keep_alive", "tools"
+            "format", "options", "stream", "keep_alive", "tools", "num_predict"
         ]
         
         for param in allowed_params:
@@ -116,6 +116,9 @@ async def chat(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
 
+    if not messages:
+        return {"error": "No messages"}
+
     payload = {
         "model": body.get("model", "qwen2.5-coder:1.5b-base"),
         "messages": messages,
@@ -124,8 +127,30 @@ async def chat(req: Request):
 
     # Define allowed Ollama /api/chat parameters to pass through
     allowed_params = [
-        "format", "options", "stream", "keep_alive", "tools"
+        "format", "options", "stream", "keep_alive", "tools", "num_predict"
     ]
+    
+    # Check for parameters often sent by OpenAI clients and map them to Ollama options if needed
+    if "options" not in payload:
+        payload["options"] = {}
+    
+    openai_to_ollama = {
+        "temperature": "temperature",
+        "top_p": "top_p",
+        "max_tokens": "num_predict",
+        "presence_penalty": "presence_penalty",
+        "frequency_penalty": "frequency_penalty"
+    }
+    
+    for openai_param, ollama_opt in openai_to_ollama.items():
+        if openai_param in body:
+            payload["options"][ollama_opt] = body[openai_param]
+            
+    # Clean up options if empty
+    if not payload["options"]:
+        del payload["options"]
+
+    print(f"DEBUG: V1 REQUEST BODY: {body}")
     
     for param in allowed_params:
         if param in body:
