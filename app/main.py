@@ -9,7 +9,8 @@ from app.scheduler import Scheduler, Task
 from app.worker import worker_loop
 from app.metrics import metrics
 from app.pipeline import run_llm
-from app.caveman import apply_caveman, CAVEMAN_INPUT_ENABLED, CAVEMAN_OUTPUT_ENABLED
+from app.caveman import apply_caveman
+import app.caveman as caveman
 from fastapi import Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -74,7 +75,7 @@ async def ollama_chat(request: Request):
         return {"error": "No messages"}
 
     # apply caveman if enabled
-    messages = apply_caveman(list(messages))
+    messages = caveman.apply_caveman(list(messages))
 
     # 🔥 używamy Twojego scheduler
     try:
@@ -124,7 +125,7 @@ async def chat(req: Request):
         return {"error": "No messages"}
 
     # apply caveman if enabled
-    messages = apply_caveman(list(messages))
+    messages = caveman.apply_caveman(list(messages))
 
     # We use basic payload to match initial working state
     payload = {
@@ -225,27 +226,36 @@ async def autotune(data: dict):
     from app.worker import set_concurrency
 
     concurrency = data.get("concurrency")
+    caveman_input = data.get("caveman_input")
+    caveman_output = data.get("caveman_output")
 
-    # manual
-    if concurrency:
+    response = {"mode": "manual"}
+
+    # concurrency
+    if concurrency is not None:
         set_concurrency(int(concurrency))
-        return {
-            "mode": "manual",
-            "concurrency": concurrency
-        }
+        response["concurrency"] = concurrency
+    else:
+        # auto if concurrency is null/not provided
+        try:
+            best = await find_optimal_concurrency()
+            set_concurrency(best["c"])
+            response["mode"] = "auto"
+            response["optimal_concurrency"] = best["c"]
+        except Exception as e:
+            print(f"Error during autotune: {e}")
+            return {"error": str(e)}
 
-    # auto
-    try:
-        best = await find_optimal_concurrency()
-        set_concurrency(best["c"])
-    except Exception as e:
-        print(f"Error during autotune: {e}")
-        return {"error": str(e)}
+    # caveman
+    if caveman_input is not None:
+        caveman.CAVEMAN_INPUT_ENABLED = bool(caveman_input)
+        response["caveman_input"] = caveman.CAVEMAN_INPUT_ENABLED
 
-    return {
-        "mode": "auto",
-        "optimal_concurrency": best["c"]
-    }
+    if caveman_output is not None:
+        caveman.CAVEMAN_OUTPUT_ENABLED = bool(caveman_output)
+        response["caveman_output"] = caveman.CAVEMAN_OUTPUT_ENABLED
+
+    return response
 
 @app.get("/metrics")
 async def get_metrics():
@@ -254,8 +264,8 @@ async def get_metrics():
         "tokens_in_flight": metrics.tokens_in_flight,
         "concurrency": metrics.concurrency,
         "last_batch_size": metrics.last_batch_size,
-        "caveman_input_enabled": CAVEMAN_INPUT_ENABLED,
-        "caveman_output_enabled": CAVEMAN_OUTPUT_ENABLED,
+        "caveman_input_enabled": caveman.CAVEMAN_INPUT_ENABLED,
+        "caveman_output_enabled": caveman.CAVEMAN_OUTPUT_ENABLED,
         "tasks": metrics.tasks[-20:],       # 🔥 ostatnie taski
         "batches": metrics.batches[-10:]    # 🔥 ostatnie batche
     }

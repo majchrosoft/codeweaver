@@ -42,6 +42,10 @@ async function refresh() {
         ).join("");
 
         document.getElementById('batches').innerHTML = batchesHtml;
+        
+        // 🔥 CAVEMAN
+        document.getElementById('caveman-input-enabled').checked = data.caveman_input_enabled;
+        document.getElementById('caveman-output-enabled').checked = data.caveman_output_enabled;
 
     } catch (err) {
         console.error("refresh error:", err);
@@ -49,9 +53,11 @@ async function refresh() {
 }
 
 
-async function autotune() {
+async function applySettings() {
     try {
-        const input = document.getElementById('concurrency-input').value;
+        const concurrency = document.getElementById('concurrency-input').value;
+        const cavemanInput = document.getElementById('caveman-input-enabled').checked;
+        const cavemanOutput = document.getElementById('caveman-output-enabled').checked;
 
         const res = await fetch('/autotune', {
             method: 'POST',
@@ -59,7 +65,9 @@ async function autotune() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                concurrency: input ? parseInt(input) : null
+                concurrency: concurrency ? parseInt(concurrency) : null,
+                caveman_input: cavemanInput,
+                caveman_output: cavemanOutput
             })
         });
 
@@ -71,7 +79,7 @@ async function autotune() {
         await refresh();
 
     } catch (err) {
-        console.error("autotune error:", err);
+        console.error("applySettings error:", err);
     }
 }
 

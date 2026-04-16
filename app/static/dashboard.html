@@ -42,8 +42,23 @@
 
 <div class="card">
     <h2>Control</h2>
-    <input id="concurrency-input" type="number" placeholder="auto or set value" />
-    <button onclick="autotune()">🔥 Apply</button>
+    <div>
+        <label>Concurrency:</label>
+        <input id="concurrency-input" type="number" placeholder="auto or set value" />
+    </div>
+    <div style="margin-top: 10px;">
+        <label>
+            <input id="caveman-input-enabled" type="checkbox" /> Caveman Input (Compress)
+        </label>
+    </div>
+    <div style="margin-top: 5px;">
+        <label>
+            <input id="caveman-output-enabled" type="checkbox" /> Caveman Output (Prompt)
+        </label>
+    </div>
+    <div style="margin-top: 15px;">
+        <button onclick="applySettings()">🔥 Apply</button>
+    </div>
     <p id="result"></p>
 </div>
 
