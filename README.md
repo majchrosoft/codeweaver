@@ -115,7 +115,7 @@ Works with:
 Runs anywhere:
 
 ```bash
-docker run -p 8000:8000 codeweaver/llm-proxy
+docker run -p 8000:8000 --add-host=host.docker.internal:host-gateway odeweaver/llm-proxy 
 ```
 
 ---
@@ -264,4 +264,151 @@ but:
 ---
 
 **codeweaver is a step in that direction.**
+
+## 🐳 Running with Docker (Linux + Ollama)
+
+This project runs as a proxy in Docker, but your LLM (e.g. Ollama) runs on the host machine.
+
+Because of that, you must correctly configure networking.
+
+---
+
+### 🔧 1. Start Ollama on host
+
+By default Ollama binds to `127.0.0.1`, which is NOT accessible from Docker.
+
+Run it like this:
+
+```bash
+OLLAMA_HOST=0.0.0.0 ollama serve
+```
+
+---
+
+### 🧱 2. Build Docker image
+
+```bash
+docker build -t codeweaver/llm-proxy .
+```
+
+---
+
+### 🚀 3. Run container (Linux)
+
+```bash
+docker run -p 8000:8000 \
+  --add-host=host.docker.internal:host-gateway \
+  codeweaver/llm-proxy
+```
+
+---
+
+### 🧠 Why `--add-host`?
+
+On Linux, Docker does NOT automatically expose the host machine.
+
+This flag makes:
+
+```text
+host.docker.internal → your host machine
+```
+
+---
+
+### 🔌 4. Access API
+
+```bash
+http://localhost:8000
+```
+
+---
+
+### ✅ Test proxy
+
+#### List models (proxied to Ollama)
+
+```bash
+curl http://localhost:8000/v1/models
+```
+
+#### Direct passthrough
+
+```bash
+curl http://localhost:8000/api/tags
+```
+
+---
+
+### 📊 Dashboard
+
+```bash
+http://localhost:8000/dashboard
+```
+
+---
+
+## ⚠️ Troubleshooting
+
+### ❌ `Connection refused` / `ConnectError`
+
+Make sure Ollama is running on:
+
+```text
+0.0.0.0:11434
+```
+
+Check:
+
+```bash
+ss -tulnp | grep 11434
+```
+
+---
+
+### ❌ `host.docker.internal` not found
+
+Make sure you used:
+
+```bash
+--add-host=host.docker.internal:host-gateway
+```
+
+---
+
+### ❌ Still not working?
+
+Use host IP instead:
+
+```bash
+ip a
+```
+
+Then update:
+
+```python
+OLLAMA_URL = "http://YOUR_IP:11434"
+```
+
+---
+
+## 🧠 Architecture
+
+```text
+Client (IDE / CLI)
+        ↓
+codeweaver proxy (Docker)
+        ↓
+(host.docker.internal)
+        ↓
+Ollama (host machine)
+```
+
+---
+
+## 🔥 What this enables
+
+* OpenAI-compatible API
+* Smart batching + queue
+* VRAM-aware scheduling
+* Transparent passthrough to Ollama
 
