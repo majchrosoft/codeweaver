@@ -20,13 +20,22 @@ window.applySettings = async function() {
 
         const data = await res.json();
 
-        document.getElementById('result').innerText =
-            JSON.stringify(data);
+        const resultEl = document.getElementById('result');
+        resultEl.innerText = "Settings applied: " + JSON.stringify(data);
+        resultEl.style.color = "green";
 
-        await refresh();
+        // Optional: clear message after 3 seconds
+        setTimeout(() => {
+            resultEl.innerText = "";
+        }, 3000);
+
+        await refresh(true);
 
     } catch (err) {
         console.error("applySettings error:", err);
+        const resultEl = document.getElementById('result');
+        resultEl.innerText = "Error: " + err.message;
+        resultEl.style.color = "red";
     }
 }
 
@@ -36,7 +45,7 @@ function colorStatus(status) {
     return "gray";
 }
 
-async function refresh() {
+async function refresh(isInitial = false) {
     try {
         const res = await fetch('/metrics');
         const data = await res.json();
@@ -74,10 +83,15 @@ async function refresh() {
         ).join("");
 
         document.getElementById('batches').innerHTML = batchesHtml;
-        
-        // 🔥 CAVEMAN
-        document.getElementById('caveman-input-enabled').checked = data.caveman_input_enabled;
-        document.getElementById('caveman-output-enabled').checked = data.caveman_output_enabled;
+
+        // 🔥 CAVEMAN (only update on initial load)
+        if (isInitial) {
+            document.getElementById('caveman-input-enabled').checked = data.caveman_input_enabled;
+            document.getElementById('caveman-output-enabled').checked = data.caveman_output_enabled;
+            if (data.concurrency && !document.getElementById('concurrency-input').value) {
+                document.getElementById('concurrency-input').value = data.concurrency;
+            }
+        }
 
     } catch (err) {
         console.error("refresh error:", err);
@@ -85,5 +99,5 @@ async function refresh() {
 }
 
 // 🔥 live refresh
-setInterval(refresh, 1000);
-refresh();
+setInterval(() => refresh(false), 1000);
+refresh(true);

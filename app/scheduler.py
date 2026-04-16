@@ -81,6 +81,10 @@ class Scheduler:
                 if self.queue and (time.time() - start) * 1000 > self.max_wait_ms:
                     # fallback: weź chociaż jeden
                     task = self.queue.pop(0)
+                    # 🔥 update status for fallback task too
+                    for mt in metrics.tasks:
+                        if mt["id"] == task.id:
+                            mt["status"] = "running"
                     self.tokens_in_flight += task.tokens
                     return [task]
 

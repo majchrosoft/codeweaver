@@ -11,8 +11,8 @@ client = httpx.AsyncClient(
 )
 
 async def run_llm(payload):
-    print(f"DEBUG: OLLAMA REQUEST PAYLOAD: {payload}")
     async with llm_lock:
+        print(f"DEBUG: OLLAMA REQUEST PAYLOAD: {payload}")
         try:
             response = await client.post(
                 "http://host.docker.internal:11434/api/chat",
