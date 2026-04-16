@@ -1,3 +1,5 @@
+console.log("dashboard.js loaded v2");
+
 function colorStatus(status) {
     if (status === "running") return "orange";
     if (status === "done") return "green";
