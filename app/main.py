@@ -28,7 +28,11 @@ async def find_optimal_concurrency():
         start = time.time()
 
         tasks = [
-            run_llm([{"role": "user", "content": "Hello"}])
+            run_llm({
+                "model": "qwen2.5-coder:1.5b-base",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": False
+            })
             for _ in range(c)
         ]
 
@@ -68,7 +72,13 @@ async def ollama_chat(request: Request):
 
     # 🔥 używamy Twojego scheduler
     try:
-        result = await run_llm(messages)
+        # Include the model in the payload
+        payload = {
+            "model": data.get("model", "qwen2.5-coder:1.5b-base"),
+            "messages": messages,
+            "stream": False # Ensure non-streaming for now as run_llm doesn't handle streams
+        }
+        result = await run_llm(payload)
     except Exception as e:
         print(f"Error calling run_llm: {e}")
         return {"error": str(e)}
@@ -85,7 +95,13 @@ async def chat(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
 
-    task = Task(messages)
+    payload = {
+        "model": body.get("model", "qwen2.5-coder:1.5b-base"),
+        "messages": messages,
+        "stream": False
+    }
+
+    task = Task(payload)
     await scheduler.add_task(task)
 
     result = await task.future
@@ -108,14 +124,16 @@ async def dashboard():
 async def benchmark(n: int = Query(5)):
     from app.pipeline import run_llm
 
-    test_prompt = [
-        {"role": "user", "content": "Explain quicksort in 2 sentences"}
-    ]
+    test_payload = {
+        "model": "qwen2.5-coder:1.5b-base",
+        "messages": [{"role": "user", "content": "Explain quicksort in 2 sentences"}],
+        "stream": False
+    }
 
     start = time.time()
 
     tasks = [
-        run_llm(test_prompt)
+        run_llm(test_payload)
         for _ in range(n)
     ]
 

@@ -14,9 +14,9 @@ def set_concurrency(n: int):
     semaphore = asyncio.Semaphore(n)
 
 
-async def run_with_limit(messages):
+async def run_with_limit(payload):
     async with semaphore:
-        return await run_llm(messages)
+        return await run_llm(payload)
 
 
 async def worker_loop(scheduler: Scheduler):
@@ -28,7 +28,7 @@ async def worker_loop(scheduler: Scheduler):
             continue
 
         tasks = [
-            run_with_limit(task.messages)
+            run_with_limit(task.payload)
             for task in batch
         ]
 

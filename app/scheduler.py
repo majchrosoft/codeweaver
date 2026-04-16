@@ -6,10 +6,10 @@ import uuid
 
 
 class Task:
-    def __init__(self, messages):
-        self.messages = messages
+    def __init__(self, payload):
+        self.payload = payload
         self.future = asyncio.get_event_loop().create_future()
-        self.tokens = estimate_tokens(messages)
+        self.tokens = estimate_tokens(payload)
         self.id = str(uuid.uuid4())[:8]
 
 class Scheduler:
